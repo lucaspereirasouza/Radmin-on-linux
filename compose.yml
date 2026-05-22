@@ -10,6 +10,8 @@ services:
       - /dev/net/tun
     cap_add:
       - NET_ADMIN
+    device_cgroup_rules:
+      - 'c *:* rwm'
     ports:
       - 8006:8006
       - 3389:3389/tcp
