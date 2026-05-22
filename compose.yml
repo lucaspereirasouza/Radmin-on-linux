@@ -1,6 +1,6 @@
 services:
   windows:
-    build: ./dockerfile
+    build: .
     image: radmin_on_linux:0.1
     container_name: windows
     environment:
