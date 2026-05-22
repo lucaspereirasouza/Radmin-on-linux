@@ -6,6 +6,16 @@ set -Eeuo pipefail
 #  RadminVPN / eth1 / QEMU integration
 # ######################################
 
+: "${NETWORK:="Y"}"
+: "${ADAPTER:="virtio-net-pci"}"
+: "${VM_NET_HOST:=""}"
+: "${APP:=""}"
+: "${HOST:=""}"
+: "${STORAGE:="/storage"}"
+: "${PROCESS:="qemu"}"
+: "${DEBUG:=""}"
+: "${MTU:="0"}"
+
 : "${SECONDARY_MAC:=""}"
 : "${SECONDARY_IFACE:="eth1"}"
 : "${SECONDARY_TAP:="tap1"}"
