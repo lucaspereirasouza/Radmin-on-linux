@@ -16,5 +16,6 @@ services:
       - 3389:3389/udp
     volumes:
       - ./windows:/storage
+      - ./shared:/shared
     restart: always
     stop_grace_period: 2m
