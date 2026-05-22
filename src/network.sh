@@ -16,6 +16,13 @@ set -Eeuo pipefail
 : "${DEBUG:=""}"
 : "${MTU:="0"}"
 
+: "${ADD_ERR:="Please add the following setting to your container:"}"
+: "${SECONDARY_CIDR:=""}"
+: "${SECONDARY_GW:=""}"
+: "${SECONDARY_MTU:="0"}"
+: "${rc:="0"}"
+
+
 : "${SECONDARY_MAC:=""}"
 : "${SECONDARY_IFACE:="eth1"}"
 : "${SECONDARY_TAP:="tap1"}"
