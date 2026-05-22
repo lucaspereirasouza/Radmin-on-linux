@@ -12,59 +12,19 @@
 
 </div></h1>
 
-Windows inside a Docker container.
+Radmin VPN for Linux automation solution.
 
-## Features ✨
+## Fork from Windows docker
 
- - ISO downloader
+## Features
  - KVM acceleration
  - Web-based viewer
-
-## Video 📺
-
-[![Youtube](https://img.youtube.com/vi/xhGYobuG508/maxresdefault.jpg)](https://www.youtube.com/watch?v=xhGYobuG508)
 
 ## Usage 🐳
 
 ##### Via Docker Compose:
 
-```yaml
-services:
-  windows:
-    image: dockurr/windows
-    container_name: windows
-    environment:
-      VERSION: "11"
-    devices:
-      - /dev/kvm
-      - /dev/net/tun
-    cap_add:
-      - NET_ADMIN
-    ports:
-      - 8006:8006
-      - 3389:3389/tcp
-      - 3389:3389/udp
-    volumes:
-      - ./windows:/storage
-    restart: always
-    stop_grace_period: 2m
-```
-
-##### Via Docker CLI:
-
-```bash
-docker run -it --rm --name windows -e "VERSION=11" -p 8006:8006 --device=/dev/kvm --device=/dev/net/tun --cap-add NET_ADMIN -v "${PWD:-.}/windows:/storage" --stop-timeout 120 docker.io/dockurr/windows
-```
-
-##### Via Kubernetes:
-
-```shell
-kubectl apply -f https://raw.githubusercontent.com/dockur/windows/refs/heads/master/kubernetes.yml
-```
-
-##### Via Github Codespaces:
-
-[![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/dockur/windows)
+##### Docker compose up
 
 ##### Via a graphical installer:
 
