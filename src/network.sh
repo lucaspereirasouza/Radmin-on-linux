@@ -36,7 +36,7 @@ if [ -d "/sys/class/net/$SECONDARY_IFACE" ]; then
 
   # Generate or restore a persistent deterministic MAC for the secondary NIC
   if [ -z "$SECONDARY_MAC" ]; then
-    local file="$STORAGE/$PROCESS.mac2"
+    file="$STORAGE/$PROCESS.mac2"
     [ -s "$file" ] && SECONDARY_MAC=$(<"$file")
     SECONDARY_MAC="${SECONDARY_MAC//[![:print:]]/}"
     if [ -z "$SECONDARY_MAC" ]; then
