@@ -1,6 +1,7 @@
 services:
   windows:
-    image: dockurr/windows
+    build: ./dockerfile
+    image: radmin_on_linux:0.1
     container_name: windows
     environment:
       VERSION: "11"
