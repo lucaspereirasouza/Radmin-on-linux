@@ -16,8 +16,12 @@ if [ -d "/sys/class/net/eth1" ]; then
     # Obter o ifindex do macvtap1
     TAP_INDEX=$(< /sys/class/net/macvtap1/ifindex)
     
-    # O arquivo /dev/tapX pode demorar um pouquinho para aparecer
-    sleep 1
+    # Em containers Docker, o udev não está rodando, então o /dev/tapX
+    # não é criado automaticamente. Precisamos criar manualmente via mknod.
+    if [ ! -c "/dev/tap${TAP_INDEX}" ]; then
+        IFS=: read -r MAJOR MINOR < /sys/devices/virtual/net/macvtap1/tap*/dev
+        mknod "/dev/tap${TAP_INDEX}" c "$MAJOR" "$MINOR"
+    fi
     
     if [ -c "/dev/tap${TAP_INDEX}" ]; then
         # Mapear o fd 40 para o device tap
