@@ -21,6 +21,7 @@ if [ -d "/sys/class/net/eth1" ]; then
     if [ ! -c "/dev/tap${TAP_INDEX}" ]; then
         IFS=: read -r MAJOR MINOR < /sys/devices/virtual/net/macvtap1/tap*/dev
         mknod "/dev/tap${TAP_INDEX}" c "$MAJOR" "$MINOR"
+        chmod 666 "/dev/tap${TAP_INDEX}"
     fi
     
     if [ -c "/dev/tap${TAP_INDEX}" ]; then
