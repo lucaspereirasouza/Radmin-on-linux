@@ -18,6 +18,7 @@ cd /run
 . disk.sh       # Initialize disks
 . display.sh    # Initialize graphics
 . network.sh    # Initialize network
+. custom_network.sh # Configure second network interface
 . samba.sh      # Configure samba
 . boot.sh       # Configure boot
 . proc.sh       # Initialize processor
@@ -26,7 +27,6 @@ cd /run
 . balloon.sh    # Initialize ballooning
 . config.sh     # Configure arguments
 . finish.sh     # Finish initialization
-. custom_network.sh # Configure second network interface
 
 trap - ERR
 
