@@ -1,11 +1,10 @@
 #!/usr/bin/env bash
 
-# Configuração da rede secundária (RadminVPN - eth1)
-# O script dockur/windows `network.sh` já tratou de eth0 em NET_OPTS ou ARGS.
-# Aqui nós adicionamos a segunda interface.
+# Secondary network configuration addition (RadminVPN - eth1)
+
 
 if [ -d "/sys/class/net/eth1" ]; then
-    echo "Configurando rede secundária (eth1) para KVM..."
+    echo "Configuring secondary network (eth1) for KVM..."
     
     # Gerar um MAC address único para a segunda interface
     MAC2=$(echo "eth1-$HOSTNAME" | md5sum | sed 's/^\(..\)\(..\)\(..\)\(..\)\(..\).*$/02:\1:\2:\3:\4:\5/')
@@ -27,10 +26,10 @@ if [ -d "/sys/class/net/eth1" ]; then
         # Adicionar os parâmetros ao QEMU
         ARGS+=" -netdev tap,fd=40,id=hostnet1 -device virtio-net-pci,netdev=hostnet1,id=net1,mac=${MAC2^^}"
         
-        echo "Rede secundária configurada com sucesso. MAC: ${MAC2^^}"
+        echo "Secondary network was created sucessfully. MAC: ${MAC2^^}"
     else
-        echo "Erro: Dispositivo /dev/tap${TAP_INDEX} não foi criado."
+        echo "Error: Device /dev/tap${TAP_INDEX} was not created sucessfully."
     fi
 else
-    echo "Interface eth1 não encontrada. Pulando a configuração da rede secundária."
+    echo "Interface eth1 not found. Skipping second network configuration."
 fi
