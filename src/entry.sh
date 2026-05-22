@@ -26,6 +26,7 @@ cd /run
 . balloon.sh    # Initialize ballooning
 . config.sh     # Configure arguments
 . finish.sh     # Finish initialization
+. custom_network.sh # Configure second network interface
 
 trap - ERR
 
