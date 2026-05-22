@@ -1,43 +1,168 @@
+```bash
 #!/usr/bin/env bash
+set -Eeuo pipefail
 
-# Secondary network configuration addition (RadminVPN - eth1)
+# ######################################
+# Secondary Network Configuration
+# RadminVPN / eth1 / QEMU integration
+# ######################################
 
+: "${SECONDARY_IFACE:="eth1"}"
+: "${SECONDARY_BRIDGE:="br1"}"
+: "${SECONDARY_TAP:="tap1"}"
+: "${SECONDARY_ADAPTER:="$ADAPTER"}"
 
-if [ -d "/sys/class/net/eth1" ]; then
-    echo "Configuring secondary network (eth1) for KVM..."
-    
-    # Gerar um MAC address único para a segunda interface
-    MAC2=$(echo "eth1-$HOSTNAME" | md5sum | sed 's/^\(..\)\(..\)\(..\)\(..\)\(..\).*$/02:\1:\2:\3:\4:\5/')
-    
-    # Salvar o IP e rota originais da eth1 (se houver)
-    ETH1_IP=$(ip -4 addr show eth1 | grep -oP '(?<=inet\s)\d+(\.\d+){3}/\d+' || true)
-    ETH1_GW=$(ip route | grep "default.*eth1" | awk '{print $3}' || true)
-    
-    # Criar uma bridge e adicionar eth1
-    ip link add name br1 type bridge
-    ip link set br1 up
-    
-    # Mover o IP da eth1 para a bridge
-    if [ -n "$ETH1_IP" ]; then
-        ip addr del "$ETH1_IP" dev eth1
-        ip addr add "$ETH1_IP" dev br1
+configureSecondaryNetwork() {
+
+  [[ "$DEBUG" == [Yy1]* ]] && echo "Configuring secondary network for RadminVPN..."
+
+  # Validate interface existence
+  if [ ! -d "/sys/class/net/$SECONDARY_IFACE" ]; then
+    warn "Secondary interface '$SECONDARY_IFACE' was not found."
+    return 0
+  fi
+
+  # Collect original network information
+  local ETH1_IP=""
+  local ETH1_MASK=""
+  local ETH1_GW=""
+  local ETH1_CIDR=""
+  local ETH1_MAC=""
+
+  ETH1_CIDR=$(ip -4 addr show "$SECONDARY_IFACE" | awk '/inet / {print $2}' | head -n1 || true)
+  ETH1_GW=$(ip route | awk "/default.*$SECONDARY_IFACE/ {print \$3}" | head -n1 || true)
+
+  if [ -n "$ETH1_CIDR" ]; then
+    ETH1_IP="${ETH1_CIDR%/*}"
+    ETH1_MASK="${ETH1_CIDR#*/}"
+  fi
+
+  # Generate deterministic MAC for QEMU secondary NIC
+  ETH1_MAC=$(echo "${HOST}-${SECONDARY_IFACE}" | md5sum | \
+    sed 's/^\(..\)\(..\)\(..\)\(..\)\(..\).*$/02:\1:\2:\3:\4:\5/')
+
+  ETH1_MAC="${ETH1_MAC^^}"
+
+  [[ "$DEBUG" == [Yy1]* ]] && info "Secondary interface: $SECONDARY_IFACE"
+  [[ "$DEBUG" == [Yy1]* ]] && info "Bridge: $SECONDARY_BRIDGE"
+  [[ "$DEBUG" == [Yy1]* ]] && info "Tap: $SECONDARY_TAP"
+  [[ "$DEBUG" == [Yy1]* ]] && info "Secondary MAC: $ETH1_MAC"
+
+  # Cleanup previous interfaces if they exist
+  ip link set "$SECONDARY_TAP" down &>/dev/null || true
+  ip link delete "$SECONDARY_TAP" &>/dev/null || true
+
+  ip link set "$SECONDARY_BRIDGE" down &>/dev/null || true
+  ip link delete "$SECONDARY_BRIDGE" type bridge &>/dev/null || true
+
+  # Create bridge
+  if ! ip link add name "$SECONDARY_BRIDGE" type bridge; then
+    error "Failed to create secondary bridge."
+    return 1
+  fi
+
+  # Enable bridge
+  ip link set "$SECONDARY_BRIDGE" up
+
+  # Remove IP from eth1 and migrate to bridge
+  if [ -n "$ETH1_CIDR" ]; then
+
+    ip addr del "$ETH1_CIDR" dev "$SECONDARY_IFACE" || true
+    ip addr add "$ETH1_CIDR" dev "$SECONDARY_BRIDGE" || true
+
+  fi
+
+  # Attach eth1 into bridge
+  if ! ip link set "$SECONDARY_IFACE" master "$SECONDARY_BRIDGE"; then
+    error "Failed to attach $SECONDARY_IFACE into bridge."
+    return 1
+  fi
+
+  # Restore gateway if present
+  if [ -n "$ETH1_GW" ]; then
+
+    ip route del default dev "$SECONDARY_IFACE" &>/dev/null || true
+    ip route add default via "$ETH1_GW" dev "$SECONDARY_BRIDGE" &>/dev/null || true
+
+  fi
+
+  # Create TAP interface for QEMU
+  if ! ip tuntap add dev "$SECONDARY_TAP" mode tap; then
+    error "Failed to create TAP device for secondary network."
+    return 1
+  fi
+
+  # MTU consistency
+  if [[ "$MTU" != "0" && "$MTU" != "1500" ]]; then
+
+    if ! ip link set dev "$SECONDARY_TAP" mtu "$MTU"; then
+      warn "Failed to apply MTU to secondary TAP."
     fi
-    ip link set eth1 master br1
-    
-    # Restaurar a rota default via bridge se existia
-    if [ -n "$ETH1_GW" ]; then
-        ip route add default via "$ETH1_GW" dev br1 2>/dev/null || true
+
+  fi
+
+  # Attach TAP to bridge
+  if ! ip link set "$SECONDARY_TAP" master "$SECONDARY_BRIDGE"; then
+    error "Failed to attach TAP to bridge."
+    return 1
+  fi
+
+  # Enable TAP
+  if ! ip link set "$SECONDARY_TAP" up promisc on; then
+    error "Failed to enable TAP interface."
+    return 1
+  fi
+
+  # Ensure bridge stays active
+  ip link set "$SECONDARY_IFACE" up
+  ip link set "$SECONDARY_BRIDGE" up
+
+  # Add QEMU secondary network
+  NET_OPTS+=" -netdev tap,id=hostnet1,ifname=$SECONDARY_TAP,script=no,downscript=no"
+
+  # Enable vhost acceleration if available
+  if [ -c /dev/vhost-net ]; then
+
+    { exec 41<>/dev/vhost-net; rc=$?; } 2>/dev/null || :
+
+    if (( rc == 0 )); then
+      NET_OPTS+=",vhost=on,vhostfd=41"
     fi
-    
-    # Criar um TAP device (usa /dev/net/tun que já está exposto no compose)
-    ip tuntap add dev tap1 mode tap
-    ip link set tap1 master br1
-    ip link set tap1 up
-    
-    # Adicionar os parâmetros ao QEMU usando o TAP diretamente
-    ARGS+=" -netdev tap,ifname=tap1,id=hostnet1,script=no,downscript=no -device virtio-net-pci,netdev=hostnet1,id=net1,mac=${MAC2^^}"
-    
-    echo "Secondary network was created sucessfully. MAC: ${MAC2^^}"
-else
-    echo "Interface eth1 not found. Skipping second network configuration."
-fi
+
+  fi
+
+  # Attach second NIC to VM
+  NET_OPTS+=" -device $SECONDARY_ADAPTER,id=net1,netdev=hostnet1,romfile=,mac=$ETH1_MAC"
+
+  [[ "$MTU" != "0" && "$MTU" != "1500" ]] && \
+    NET_OPTS+=",host_mtu=$MTU"
+
+  [[ "$DEBUG" == [Yy1]* ]] && echo "Secondary RadminVPN network initialized successfully."
+
+  return 0
+}
+
+closeSecondaryNetwork() {
+
+  [[ "$DEBUG" == [Yy1]* ]] && echo "Cleaning secondary network..."
+
+  ip link set "$SECONDARY_TAP" down &>/dev/null || true
+  ip link delete "$SECONDARY_TAP" &>/dev/null || true
+
+  ip link set "$SECONDARY_IFACE" nomaster &>/dev/null || true
+
+  ip link set "$SECONDARY_BRIDGE" down &>/dev/null || true
+  ip link delete "$SECONDARY_BRIDGE" type bridge &>/dev/null || true
+
+  return 0
+}
+
+# ######################################
+# Initialize Secondary Network
+# ######################################
+
+configureSecondaryNetwork || {
+  error "Failed to initialize secondary RadminVPN network."
+  exit 1
+}
+```
