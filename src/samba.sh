@@ -2,15 +2,16 @@
 set -Eeuo pipefail
 
 : "${SAMBA:="Y"}"         # Enable Samba
-: "${SAMBA_LEVEL:="1"}"   # Logging level
 : "${SAMBA_DEBUG:="N"}"   # Disable debug
 
 tmp="/tmp/smb"
 rm -rf "$tmp"
 
-rm -f /var/run/wsdd.pid
-rm -f /var/run/samba/nmbd.pid
-rm -f /var/run/samba/smbd.pid
+DDN_PID="/var/run/wsdd.pid"
+NMB_PID="/var/run/samba/nmbd.pid"
+SMB_PID="/var/run/samba/smbd.pid"
+
+rm -f "$SMB_PID" "$NMB_PID" "$DDN_PID"
 
 [[ "$SAMBA" == [Nn]* ]] && return 0
 [[ "$NETWORK" == [Nn]* ]] && return 0
@@ -78,7 +79,7 @@ addShare() {
   if [[ "$dir" == "$tmp" ]]; then
 
     {   echo "--------------------------------------------------------"
-        echo " $APP for $ENGINE v$(</run/version)..."
+        echo " $APP for $ENGINE v$(</etc/version)..."
         echo " For support visit $SUPPORT"
         echo "--------------------------------------------------------"
         echo ""
@@ -151,18 +152,14 @@ share="/shared"
 
 if [ -d "/shared2" ]; then
   addShare "/shared2" "/shared2" "Data2" "Shared" "$SAMBA_CONFIG" || :
-else
-  if [ -d "/data2" ]; then
-    addShare "/data2" "/shared2" "Data2" "Shared" "$SAMBA_CONFIG" || :
-  fi
+elif [ -d "/data2" ]; then
+  addShare "/data2" "/shared2" "Data2" "Shared" "$SAMBA_CONFIG" || :
 fi
 
 if [ -d "/shared3" ]; then
   addShare "/shared3" "/shared3" "Data3" "Shared" "$SAMBA_CONFIG" || :
-else
-  if [ -d "/data3" ]; then
-    addShare "/data3" "/shared3" "Data3" "Shared" "$SAMBA_CONFIG" || :
-  fi
+elif [ -d "/data3" ]; then
+  addShare "/data3" "/shared3" "Data3" "Shared" "$SAMBA_CONFIG" || :
 fi
 
 # Create directories if missing
@@ -211,10 +208,9 @@ else
 
   # Enable Web Service Discovery on Vista and up
   [[ "$DEBUG" == [Yy1]* ]] && echo "Starting wsddn daemon..."
-
   rm -f /var/log/wsddn.log
 
-  if ! wsddn -i "${interfaces%%,*}" -H "$hostname" --unixd --log-file=/var/log/wsddn.log --pid-file=/var/run/wsdd.pid; then
+  if ! wsddn -i "${interfaces%%,*}" -H "$hostname" --unixd --log-file=/var/log/wsddn.log --pid-file="$DDN_PID"; then
     SAMBA_DEBUG="Y"
     error "Failed to start wsddn daemon!"
   fi

@@ -3,7 +3,7 @@
 ARG VERSION_ARG="latest"
 FROM scratch AS build-amd64
 
-COPY --from=qemux/qemu:7.30 / /
+COPY --from=qemux/qemu:7.32 / /
 
 ARG TARGETARCH
 ARG VERSION_WSDD="1.24"
@@ -22,7 +22,7 @@ RUN set -eu && \
         cabextract \
         libxml2-utils \
         libarchive-tools && \
-    wget "https://github.com/gershnik/wsdd-native/releases/download/v${VERSION_WSDD}/wsddn_${VERSION_WSDD}_${TARGETARCH}.deb" -O /tmp/wsddn.deb -q && \
+    wget "https://github.com/gershnik/wsdd-native/releases/download/v${VERSION_WSDD}/wsddn_${VERSION_WSDD}_${TARGETARCH}.deb" -O /tmp/wsddn.deb -q --timeout=10 && \
     dpkg -i /tmp/wsddn.deb && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
@@ -36,7 +36,7 @@ FROM dockurr/windows-arm:${VERSION_ARG} AS build-arm64
 FROM build-${TARGETARCH}
 
 ARG VERSION_ARG="0.00"
-RUN echo "$VERSION_ARG" > /run/version
+RUN echo "$VERSION_ARG" > /etc/version
 
 VOLUME /storage
 EXPOSE 3389 8006
